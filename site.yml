@@ -45,6 +45,4 @@
         volumes:
           - wordpress-data:/var/www/html
 
-volumes:
-  wordpress-db-data:
-  wordpress-data:
+
