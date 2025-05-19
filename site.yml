@@ -1,5 +1,5 @@
 ---
-- hosts: localhost
+- hosts: laravel
   gather_facts: false
   collections:
     - community.docker
