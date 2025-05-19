@@ -1,5 +1,5 @@
 ---
-- hosts: wordpress
+- hosts: claravel
   become: true
   tasks:
     - name: Ensure pip is installed
@@ -16,9 +16,9 @@
         executable: pip3
       tags: install
 
-    - name: Create Docker network for WordPress 2
+    - name: Create Docker network for Laravel
       community.docker.docker_network:
-        name: wordpress2-net
+        name: laravel-net
         state: present
 
     - name: Pull MySQL image
@@ -27,41 +27,41 @@
         tag: "5.7"
         source: pull
 
-    - name: Run MySQL container for WP2
+    - name: Run MySQL container for Laravel
       community.docker.docker_container:
-        name: wordpress2-db
+        name: laravel-db
         image: mysql:5.7
         state: started
         restart_policy: always
         env:
-          MYSQL_ROOT_PASSWORD: example_root_password
-          MYSQL_DATABASE: wordpress
-          MYSQL_USER: wordpress_user
-          MYSQL_PASSWORD: wordpress_password
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: laravel
+          MYSQL_USER: laravel_user
+          MYSQL_PASSWORD: laravel_pass
         networks:
-          - name: wordpress2-net
+          - name: laravel-net
         volumes:
-          - wordpress2-db-data:/var/lib/mysql
+          - laravel-db-data:/var/lib/mysql
 
-    - name: Pull WordPress image
+    - name: Pull Laravel image
       community.docker.docker_image:
-        name: wordpress
+        name: laravelphp/laravel
         source: pull
 
-    - name: Run WordPress container for WP2
+    - name: Run Laravel container
       community.docker.docker_container:
-        name: wordpress2
-        image: wordpress
+        name: laravel
+        image: laravelphp/laravel
         state: started
         restart_policy: always
         env:
-          WORDPRESS_DB_HOST: wordpress2-db:3306
-          WORDPRESS_DB_USER: wordpress_user
-          WORDPRESS_DB_PASSWORD: wordpress_password
-          WORDPRESS_DB_NAME: wordpress
+          DB_HOST: laravel-db
+          DB_DATABASE: laravel
+          DB_USERNAME: laravel_user
+          DB_PASSWORD: laravel_pass
         ports:
-          - "8082:80"
+          - "8080:80"
         networks:
-          - name: wordpress2-net
+          - name: laravel-net
         volumes:
-          - wordpress2-data:/var/www/html
+          - laravel-data:/var/www/html
