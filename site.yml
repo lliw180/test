@@ -1,46 +1,68 @@
 ---
-- hosts: wordpress
+- hosts: claravel
   become: true
   tasks:
+    - name: Ensure pip is installed
+      apt:
+        name: python3-pip
+        state: present
+      tags: install
+
+    - name: Install Docker SDK and requests
+      pip:
+        name:
+          - docker
+          - requests
+        executable: pip3
+      tags: install
+
+    - name: Create Docker network for Laravel
+      community.docker.docker_network:
+        name: laravel-net
+        state: present
+
     - name: Pull MySQL image
       community.docker.docker_image:
         name: mysql
         tag: "5.7"
         source: pull
 
-    - name: Run MySQL container
+    - name: Run MySQL container for Laravel
       community.docker.docker_container:
-        name: wordpress-db
+        name: laravel-db
         image: mysql:5.7
         state: started
         restart_policy: always
         env:
-          MYSQL_ROOT_PASSWORD: example_root_password
-          MYSQL_DATABASE: wordpress
-          MYSQL_USER: wordpress_user
-          MYSQL_PASSWORD: wordpress_password
-        ports:
-          - "3306:3306"
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: laravel
+          MYSQL_USER: laravel_user
+          MYSQL_PASSWORD: laravel_pass
+        networks:
+          - name: laravel-net
         volumes:
-          - wordpress-db-data:/var/lib/mysql
+          - laravel-db-data:/var/lib/mysql
 
-    - name: Pull WordPress image
+    - name: Pull PHP Apache image
       community.docker.docker_image:
-        name: wordpress
+        name: php
+        tag: "8.1-apache"
         source: pull
 
-    - name: Run WordPress container
+    - name: Run Laravel container (PHP + Apache)
       community.docker.docker_container:
-        name: wordpress
-        image: wordpress
+        name: laravel
+        image: php:8.1-apache
         state: started
         restart_policy: always
         env:
-          WORDPRESS_DB_HOST: localhost:3306
-          WORDPRESS_DB_USER: wordpress_user
-          WORDPRESS_DB_PASSWORD: wordpress_password
-          WORDPRESS_DB_NAME: wordpress
+          DB_HOST: laravel-db
+          DB_DATABASE: laravel
+          DB_USERNAME: laravel_user
+          DB_PASSWORD: laravel_pass
         ports:
           - "8080:80"
+        networks:
+          - name: laravel-net
         volumes:
-          - wordpress-data:/var/www/html
+          - /srv/laravel-app:/var/www/html
