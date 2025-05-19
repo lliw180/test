@@ -1,10 +1,15 @@
 ---
 - hosts: laravel
   become: true
+  vars:
+    laravel_repo: "https://github.com/yourusername/your-laravel-repo.git"
+    app_path: /srv/laravel-app
   tasks:
-    - name: Ensure pip is installed
+    - name: Ensure required packages are installed on host
       apt:
-        name: python3-pip
+        name:
+          - python3-pip
+          - git
         state: present
       tags: install
 
@@ -16,16 +21,35 @@
         executable: pip3
       tags: install
 
+    - name: Clone Laravel repository to host folder
+      git:
+        repo: "{{ laravel_repo }}"
+        dest: "{{ app_path }}"
+        version: main
+        force: yes
+      tags: setup
+
+    - name: Set ownership and permissions on Laravel app folder
+      file:
+        path: "{{ app_path }}"
+        owner: www-data
+        group: www-data
+        recurse: yes
+        mode: '0755'
+      tags: setup
+
     - name: Create Docker network for Laravel
       community.docker.docker_network:
         name: laravel-net
         state: present
+      tags: docker
 
     - name: Pull MySQL image
       community.docker.docker_image:
         name: mysql
         tag: "5.7"
         source: pull
+      tags: docker
 
     - name: Run MySQL container for Laravel
       community.docker.docker_container:
@@ -42,12 +66,14 @@
           - name: laravel-net
         volumes:
           - laravel-db-data:/var/lib/mysql
+      tags: docker
 
     - name: Pull PHP Apache image
       community.docker.docker_image:
         name: php
         tag: "8.1-apache"
         source: pull
+      tags: docker
 
     - name: Run Laravel container (PHP + Apache)
       community.docker.docker_container:
@@ -65,4 +91,43 @@
         networks:
           - name: laravel-net
         volumes:
-          - /srv/laravel-app:/var/www/html
+          - "{{ app_path }}:/var/www/html"
+      tags: docker
+
+    - name: Install dependencies and setup Laravel (run commands inside container)
+      block:
+        - name: Install curl and unzip in Laravel container (to get composer)
+          community.docker.docker_container_exec:
+            container: laravel
+            command: |
+              apt-get update && apt-get install -y curl unzip
+          become: true
+
+        - name: Install Composer in Laravel container
+          community.docker.docker_container_exec:
+            container: laravel
+            command: |
+              curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+          become: true
+
+        - name: Run composer install
+          community.docker.docker_container_exec:
+            container: laravel
+            command: |
+              cd /var/www/html && composer install --no-interaction --prefer-dist --optimize-autoloader
+          become: true
+
+        - name: Generate Laravel app key
+          community.docker.docker_container_exec:
+            container: laravel
+            command: |
+              cd /var/www/html && php artisan key:generate
+          become: true
+
+        - name: Run Laravel migrations
+          community.docker.docker_container_exec:
+            container: laravel
+            command: |
+              cd /var/www/html && php artisan migrate --force
+          become: true
+      tags: setup
