@@ -1,117 +1,13 @@
 ---
-- hosts: laravel
-  become: true
-  vars:
-    app_path: /srv/laravel-app
+- hosts: localhost
+  gather_facts: false
+  collections:
+    - community.docker
   tasks:
-    - name: Ensure required packages are installed on host
-      apt:
-        name:
-          - python3-pip
-          - git
-        state: present
-        update_cache: yes
-      tags: install
-
-    - name: Install Docker SDK and requests
-      pip:
-        name:
-          - docker
-          - requests
-        executable: pip3
-      tags: install
-
-    - name: Create Docker network for Laravel
-      community.docker.docker_network:
+    - name: List docker networks
+      community.docker.docker_network_info:
         name: laravel-net
-        state: present
-      tags: docker
+      register: result
 
-    - name: Pull MySQL image
-      community.docker.docker_image:
-        name: mysql
-        tag: "5.7"
-        source: pull
-      tags: docker
-
-    - name: Run MySQL container for Laravel
-      community.docker.docker_container:
-        name: laravel-db
-        image: mysql:5.7
-        state: started
-        restart_policy: always
-        env:
-          MYSQL_ROOT_PASSWORD: rootpass
-          MYSQL_DATABASE: laravel
-          MYSQL_USER: laravel_user
-          MYSQL_PASSWORD: laravel_pass
-        networks:
-          - name: laravel-net
-        volumes:
-          - laravel-db-data:/var/lib/mysql
-      tags: docker
-
-    - name: Pull PHP Apache image
-      community.docker.docker_image:
-        name: php
-        tag: "8.1-apache"
-        source: pull
-      tags: docker
-
-    - name: Run Laravel container (PHP + Apache)
-      community.docker.docker_container:
-        name: laravel
-        image: php:8.1-apache
-        state: started
-        restart_policy: always
-        env:
-          DB_HOST: laravel-db
-          DB_DATABASE: laravel
-          DB_USERNAME: laravel_user
-          DB_PASSWORD: laravel_pass
-        ports:
-          - "8080:80"
-        networks:
-          - name: laravel-net
-        volumes:
-          - "{{ app_path }}:/var/www/html"
-      tags: docker
-
-    - name: Install dependencies and setup Laravel (run commands inside container)
-      block:
-        - name: Install curl, unzip and git in Laravel container (to get composer and git)
-          community.docker.docker_container_exec:
-            container: laravel
-            command: apt-get update && apt-get install -y curl unzip git
-          become: true
-
-        - name: Install Composer in Laravel container
-          community.docker.docker_container_exec:
-            container: laravel
-            command: curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-          become: true
-
-        - name: Create new Laravel project inside container
-          community.docker.docker_container_exec:
-            container: laravel
-            command: composer create-project --prefer-dist laravel/laravel /var/www/html
-          become: true
-
-        - name: Set ownership of Laravel files inside container volume (optional)
-          community.docker.docker_container_exec:
-            container: laravel
-            command: chown -R www-data:www-data /var/www/html
-          become: true
-
-        - name: Generate Laravel app key
-          community.docker.docker_container_exec:
-            container: laravel
-            command: cd /var/www/html && php artisan key:generate
-          become: true
-
-        - name: Run Laravel migrations
-          community.docker.docker_container_exec:
-            container: laravel
-            command: cd /var/www/html && php artisan migrate --force
-          become: true
-      tags: setup
+    - debug:
+        var: result
