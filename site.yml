@@ -1,7 +1,12 @@
 ---
 - hosts: all
   become: true
-  tasks: 
-    - name: Print OS info 
-      ansible.builtin.package:
+  tasks:
+    - name: Remove Apache
+      ansible.builtin.apt:
         name: apache2
+        state: absent
+        purge: yes
+        autoremove: yes
+        update_cache: yes
+
