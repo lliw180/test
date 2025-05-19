@@ -6,13 +6,20 @@
       apt:
         name: python3-pip
         state: present
+      tags: install
 
-    - name: Install docker SDK for Python
+    - name: Install Docker SDK and requests
       pip:
         name:
           - docker
           - requests
         executable: pip3
+      tags: install
+
+    - name: Create Docker network for WordPress and MySQL
+      community.docker.docker_network:
+        name: wordpress-net
+        state: present
 
     - name: Pull MySQL image
       community.docker.docker_image:
@@ -31,8 +38,8 @@
           MYSQL_DATABASE: wordpress
           MYSQL_USER: wordpress_user
           MYSQL_PASSWORD: wordpress_password
-        ports:
-          - "3306:3306"
+        networks:
+          - name: wordpress-net
         volumes:
           - wordpress-db-data:/var/lib/mysql
 
@@ -48,11 +55,13 @@
         state: started
         restart_policy: always
         env:
-          WORDPRESS_DB_HOST: localhost:3306
+          WORDPRESS_DB_HOST: wordpress-db:3306
           WORDPRESS_DB_USER: wordpress_user
           WORDPRESS_DB_PASSWORD: wordpress_password
           WORDPRESS_DB_NAME: wordpress
         ports:
           - "8080:80"
+        networks:
+          - name: wordpress-net
         volumes:
           - wordpress-data:/var/www/html
