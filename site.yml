@@ -1,5 +1,5 @@
 ---
-- hosts: claravel
+- hosts: laravel
   become: true
   tasks:
     - name: Ensure pip is installed
