@@ -1,5 +1,5 @@
 ---
-- hosts: laravel
+- hosts: mysql
   gather_facts: false
   collections:
     - community.docker
